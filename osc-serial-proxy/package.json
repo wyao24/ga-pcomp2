@@ -1,0 +1,12 @@
+{
+  "name": "osc-serial-proxy",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "author": "Michael Meisel",
+  "license": "ISC",
+  "dependencies": {
+    "internal-ip": "^6.0.0",
+    "osc": "^2.4.1"
+  }
+}
