@@ -3,7 +3,7 @@ const internalIp = require('internal-ip');
 const osc = require('osc');
 
 // You shouldn't need to change these
-const LOCAL_ADDRESS = internalIp.v4.sync() || '0.0.0.0';
+const LOCAL_ADDRESS = '0.0.0.0';
 const OSC_UDP_PORT = 9999;
 const WEB_SERVER_PORT = 3000;
 
@@ -74,7 +74,8 @@ udpPort.on('ready', () => {
     })
   });
 
-  console.log('Listening for OSC messages on', LOCAL_ADDRESS, 'port', OSC_UDP_PORT);
+  console.log('LAN IP address:', internalIp.v4.sync());
+  console.log('Listening for OSC messages on port', OSC_UDP_PORT);
 });
 
 // Catch errors on both ports
