@@ -1,5 +1,5 @@
 {
-  "name": "osc-serial-proxy",
+  "name": "osc-serial-proxy-ws",
   "version": "1.0.0",
   "description": "",
   "main": "server.js",

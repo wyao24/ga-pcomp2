@@ -17,20 +17,17 @@ const SERIAL_BITRATE = 57600;
 const inboundUdpPort = new osc.UDPPort({
   localAddress: LOCAL_ADDRESS,
   localPort: LOCAL_PORT,
-  metadata: true,
-});
+  });
 
 const outboundUdpPort = new osc.UDPPort({
   remoteAddress: REMOTE_ADDRESS,
   remotePort: REMOTE_PORT,
-  metadata: true,
-})
+});
 
 // Set up the serial port to talk to the Arduino
 const serialPort = new osc.SerialPort({
   bitrate: SERIAL_BITRATE,
   devicePath: SERIAL_DEVICE,
-  metadata: true,
 });
 
 let serialPortReady = false;

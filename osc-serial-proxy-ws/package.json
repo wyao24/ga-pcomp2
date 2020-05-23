@@ -1,12 +1,12 @@
 {
-  "name": "osc-serial-proxy",
+  "name": "osc-serial-proxy-ws",
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
   "author": "Michael Meisel",
   "license": "ISC",
   "dependencies": {
-    "internal-ip": "^5.0.0",
-    "osc": "^2.4.1"
+    "osc": "^2.4.1",
+    "serialport": "^9.0.0"
   }
 }

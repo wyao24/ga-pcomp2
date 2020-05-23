@@ -1,16 +1,12 @@
 {
-  "name": "osc-joystick-p5",
+  "name": "collective",
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
-  "author": "mark hellar",
-  "contributors": [
-    "Michael Meisel"
-  ],
+  "author": "Michael Meisel",
   "license": "ISC",
   "dependencies": {
     "express": "^4.17.1",
-    "internal-ip": "^5.0.0",
     "osc": "^2.4.1",
     "ws": "^7.3.0"
   }
