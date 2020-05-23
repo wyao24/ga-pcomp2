@@ -57,7 +57,9 @@ class WebsocketsWriter : public Print {
 
 WebsocketsWriter writer;
 CRGB leds[NUM_LEDS];
-
+int lastButtonState = -1;
+float lastX = -1.0;
+float lastY = -1.0;
 
 
 void onXy(OSCMessage& msg) {
@@ -148,22 +150,32 @@ void loop() {
   float yAxis = ((float) analogRead(Y_PIN)) / ANALOG_MAX_VALUE;
   int button = digitalRead(BUTTON_PIN);
 
-  // Use the same addresses as page 3 of TouchOSC's Simple layout
-  OSCMessage xyMessage("/3/xy");
-  OSCMessage buttonMessage("/3/toggle1");
+  // Require a 1% change before we send a new value to avoid sending continuosly
+  if (abs(xAxis - lastX) > 0.01 || abs(yAxis - lastY) > 0.01) {
+    // Use the same addresses as page 3 of TouchOSC's Simple layout
+    OSCMessage xyMessage("/3/xy");
 
-  // Add both the x and y values to the same message, this makes sure they change together.
-  // (Also, this is what TouchOSC does.)
-  xyMessage.add(xAxis);
-  xyMessage.add(yAxis);
+    // Add both the x and y values to the same message, this makes sure they change together.
+    // (Also, this is what TouchOSC does.)
+    xyMessage.add(xAxis);
+    xyMessage.add(yAxis);
 
-  xyMessage.send(writer);
-  writer.endMessage();
+    xyMessage.send(writer);
+    writer.endMessage();
+    lastX = xAxis;
+    lasyY = yAxis;
+  }
 
-  // Remember that LOW means pressed for this joystick
-  buttonMessage.add(button == HIGH ? 0.0 : 1.0);
-  buttonMessage.send(writer);
-  writer.endMessage();
+  if (lastButtonState != button) {
+    // Use the same addresses as page 3 of TouchOSC's Simple layout
+    OSCMessage buttonMessage("/3/toggle1");
+
+    // Remember that LOW means pressed for this joystick
+    buttonMessage.add(button == HIGH ? 0.0 : 1.0);
+    buttonMessage.send(writer);
+    writer.endMessage();
+    lastButtonState = button;
+  }
 
   // Call show at the end of the loop to display any changes
   FastLED.show();
