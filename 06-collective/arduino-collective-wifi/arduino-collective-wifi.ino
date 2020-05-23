@@ -163,7 +163,7 @@ void loop() {
     xyMessage.send(writer);
     writer.endMessage();
     lastX = xAxis;
-    lasyY = yAxis;
+    lastY = yAxis;
   }
 
   if (lastButtonState != button) {
