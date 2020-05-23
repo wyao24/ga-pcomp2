@@ -15,6 +15,6 @@
   },
   "scripts": {
     "start": "node server.js",
-    "deploy": "git subtree push --prefix 06-collective heroku master"
+    "deploy": "cd .. && git subtree push --prefix 06-collective heroku master"
   }
 }
