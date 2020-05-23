@@ -1,4 +1,4 @@
-const socket = new osc.WebSocketPort({ url: 'ws://' + window.location.host });
+const socket = new osc.WebSocketPort({ url: window.location.origin.replace(/^http/, 'ws') });
 
 socket.on('message', (msg) => {
   console.log(msg);

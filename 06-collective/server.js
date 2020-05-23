@@ -2,7 +2,7 @@ const express = require('express');
 const osc = require('osc');
 const WebSocket = require('ws');
 
-const WEB_SERVER_PORT = 3000;
+const WEB_SERVER_PORT = process.env.PORT || 3000;
 
 // Create an express web server
 const app = express();
