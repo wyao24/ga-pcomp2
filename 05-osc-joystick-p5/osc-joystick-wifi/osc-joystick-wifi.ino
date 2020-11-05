@@ -26,6 +26,9 @@ char pass[] = "*******"; // your network password
 WiFiUDP Udp;
 const IPAddress outIp(10,10,10,10); // remote IP of your computer
 const unsigned int outPort = 9999; // remote port to receive OSC
+int lastButtonState = -1;
+float lastX = -1.0;
+float lastY = -1.0;
 
 void setup() {
   pinMode(X_PIN, INPUT);
@@ -57,24 +60,33 @@ void loop() {
   float yAxis = ((float) analogRead(Y_PIN)) / ANALOG_MAX_VALUE;
   int button = digitalRead(BUTTON_PIN);
 
-  // Use the same addresses as page 3 of TouchOSC's Simple layout
-  OSCMessage xyMessage("/3/xy");
-  OSCMessage buttonMessage("/3/toggle1");
+  // Require a 2% change before we send a new value to avoid sending continuously
+  if (abs(xAxis - lastX) >= 0.02 || abs(yAxis - lastY) >= 0.02) {
+    // Use the same addresses as page 3 of TouchOSC's Simple layout
+    OSCMessage xyMessage("/3/xy");
 
-  // Add both the x and y values to the same message, this makes sure they change together.
-  // (Also, this is what TouchOSC does.)
-  xyMessage.add(xAxis);
-  xyMessage.add(yAxis);
+    // Add both the x and y values to the same message, this makes sure they change together.
+    // (Also, this is what TouchOSC does.)
+    xyMessage.add(xAxis);
+    xyMessage.add(yAxis);
 
-  Udp.beginPacket(outIp, outPort);
-  xyMessage.send(Udp);
-  Udp.endPacket();
+    Udp.beginPacket(outIp, outPort);
+    xyMessage.send(Udp);
+    Udp.endPacket();
+    lastX = xAxis;
+    lastY = yAxis;
+  }
 
-  // Remember that LOW means pressed for this joystick
-  buttonMessage.add(button == HIGH ? 0.0 : 1.0);
-  Udp.beginPacket(outIp, outPort);
-  buttonMessage.send(Udp);
-  Udp.endPacket();
+  if (lastButtonState != button) {
+    OSCMessage buttonMessage("/3/toggle1");
 
-  delay(100);
+    // Remember that LOW means pressed for this joystick
+    buttonMessage.add(button == HIGH ? 0.0 : 1.0);
+    Udp.beginPacket(outIp, outPort);
+    buttonMessage.send(Udp);
+    Udp.endPacket();
+    lastButtonState = button;
+  }
+
+  delay(16);
 }
