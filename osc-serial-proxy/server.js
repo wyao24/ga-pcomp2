@@ -4,24 +4,20 @@ const osc = require('osc');
 // Change this to match the port you selected in the Arduino IDE
 const SERIAL_DEVICE = '/dev/cu.usbmodem14201';
 
-// Change this if you want to talk to a different OSC device
-const REMOTE_ADDRESS = '127.0.0.1';
-const REMOTE_PORT = 9999;
+// Change these to match your receiving OSC device
+const OUTBOUND_ADDRESS = '192.168.1.100';
+const OUTBOUND_PORT = 9000;
 
 // You shouldn't need to change these
-const LOCAL_ADDRESS = '0.0.0.0';
-const LOCAL_PORT = 8888;
+const INBOUND_ADDRESS = '0.0.0.0';
+const INBOUND_PORT = 8888;
 const SERIAL_BITRATE = 57600;
 
-// Set up the network port
-const inboundUdpPort = new osc.UDPPort({
-  localAddress: LOCAL_ADDRESS,
-  localPort: LOCAL_PORT,
-  });
-
-const outboundUdpPort = new osc.UDPPort({
-  remoteAddress: REMOTE_ADDRESS,
-  remotePort: REMOTE_PORT,
+const udpPort = new osc.UDPPort({
+  localAddress: INBOUND_ADDRESS,
+  localPort: INBOUND_PORT,
+  remoteAddress: OUTBOUND_ADDRESS,
+  remotePort: OUTBOUND_PORT,
 });
 
 // Set up the serial port to talk to the Arduino
@@ -33,24 +29,22 @@ const serialPort = new osc.SerialPort({
 let serialPortReady = false;
 
 // Once our inbound network port is ready, print our IP address and start listening for messages
-inboundUdpPort.on('ready', () => {
+udpPort.on('ready', () => {
   console.log('LAN IP Address:', internalIp.v4.sync());
-  console.log('Listening on port', inboundUdpPort.options.localPort);
+  console.log('Listening on port', udpPort.options.localPort);
 
   // Forward incoming messages over serial
-  inboundUdpPort.on('message', (msg) => {
+  udpPort.on('message', (msg) => {
     console.log('Network to device:', msg);
     serialPort.send(msg);
   });
-});
 
-// Once our outbount network port is ready, indicate where we will send messages
-outboundUdpPort.on('ready', () => {
+  // Indicate where we will send outbound messages
   console.log(
     'Forwarding messages to',
-    outboundUdpPort.options.remoteAddress,
+    udpPort.options.remoteAddress,
     'port',
-    outboundUdpPort.options.remotePort
+    udpPort.options.remotePort
   );
 });
 
@@ -61,20 +55,17 @@ serialPort.on('ready', () => {
 
   serialPort.on('message', (msg) => {
     console.log('Device to network:', msg);
-    outboundUdpPort.send(msg);
+    udpPort.send(msg);
   });
 });
 
-// Catch errors on all ports
-inboundUdpPort.on('error', (error) => {
+// Catch errors on both ports
+udpPort.on('error', (error) => {
   console.error(error.message || error);
-  console.error(`There may be another server running on port ${LOCAL_PORT}.`);
-  process.exit();
-});
 
-outboundUdpPort.on('error', (error) => {
-  console.error(error.message || error);
-  process.exit();
+  if (error.code === 'EADDRINUSE') {
+    console.error(`There may be another server running on port ${INBOUND_PORT}.`);
+  }
 });
 
 serialPort.on('error', (error) => {
@@ -87,11 +78,8 @@ serialPort.on('error', (error) => {
   }
 });
 
-// Start listening for messages from the network
-inboundUdpPort.open();
-
 // Enable sending messages to the network
-outboundUdpPort.open();
+udpPort.open();
 
 // Connect to the serial port to relay messages to the Arduino
 serialPort.open();
