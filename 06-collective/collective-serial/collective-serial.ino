@@ -80,8 +80,8 @@ void sendOSC() {
   float yAxis = ((float) analogRead(Y_PIN)) / ANALOG_MAX_VALUE;
   int button = digitalRead(BUTTON_PIN);
 
-  // Require a 1% change before we send a new value to avoid sending continuously
-  if (abs(xAxis - lastX) > 0.01 || abs(yAxis - lastY) > 0.01) {
+  // Require a 2% change before we send a new value to avoid sending continuously
+  if (abs(xAxis - lastX) >= 0.02 || abs(yAxis - lastY) >= 0.02) {
     // Use the same addresses as page 3 of TouchOSC's Simple layout
     OSCMessage xyMessage("/3/xy");
 
@@ -134,5 +134,5 @@ void loop() {
 
   // Call show at the end of the loop to display any changes
   FastLED.show();
-  delay(100);
+  delay(16);
 }

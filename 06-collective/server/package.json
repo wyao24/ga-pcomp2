@@ -1,5 +1,5 @@
 {
-  "name": "collective",
+  "name": "collective-server",
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
@@ -15,6 +15,6 @@
   },
   "scripts": {
     "start": "node server.js",
-    "deploy": "cd .. && git subtree push --prefix 06-collective heroku master"
+    "deploy": "cd ../.. && git subtree push --prefix 06-collective/server heroku master"
   }
 }

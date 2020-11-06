@@ -10,9 +10,6 @@ const server = app.listen(WEB_SERVER_PORT, () => {
   console.log('Web server listening on port', WEB_SERVER_PORT);
 });
 
-// Expose the local public folder, which should contain all your client-side code
-app.use(express.static('public'));
-
 // Create a WebSocket server
 const wss = new WebSocket.Server({ server: server });
 
@@ -23,14 +20,14 @@ wss.on('connection', (socket, request) => {
     console.error(error);
   });
 
-  // Broadcast any received messages to all of the other clients
+  // Broadcast any received messages to all of the clients
   socket.on('message', (msg) => {
-    broadcast(socket, msg);
+    broadcast(msg);
   });
 
   socket.on('close', () => {
     console.log(request.socket.remoteAddress, 'left');
-    broadcast(socket, osc.writeMessage({
+    broadcast(osc.writeMessage({
       address: "/collective/leave",
       args: [{ type: 's', value: request.socket.remoteAddress }],
     }));
@@ -42,16 +39,16 @@ wss.on('connection', (socket, request) => {
   socket.send(osc.writeMessage({ address: "/collective/hi", args: [] }));
 
   // Tell everyone else we have a new client
-  broadcast(socket, osc.writeMessage({
+  broadcast(osc.writeMessage({
     address: "/collective/join",
     args: [{ type: 's', value: request.socket.remoteAddress }],
   }));
 
 });
 
-function broadcast(fromClient, msg) {
+function broadcast(msg) {
   wss.clients.forEach((client) => {
-    if (client !== fromClient && client.readyState === WebSocket.OPEN) {
+    if (client.readyState === WebSocket.OPEN) {
       client.send(msg);
     }
   });
