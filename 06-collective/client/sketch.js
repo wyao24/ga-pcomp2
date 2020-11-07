@@ -39,3 +39,14 @@ function draw() {
   stroke(50);
   ellipse(x, y, 50, 50);
 }
+
+function mouseClicked() {
+  // Do the same think whether clicked or dragged
+  mouseDragged();
+}
+
+function mouseDragged() {
+  const newX = constrain(mouseX / width, 0, 1);
+  const newY = constrain(mouseY / height, 0, 1);
+  socket.send({ address: '/3/xy', args: [newX, newY] })
+}
