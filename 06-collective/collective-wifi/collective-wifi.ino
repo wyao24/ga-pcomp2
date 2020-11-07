@@ -16,7 +16,7 @@ using namespace websockets;
 #define Y_PIN A7
 #define BUTTON_PIN 14
 
-#define NUM_LEDS 15
+#define NUM_LEDS 60
 #define DATA_PIN 21
 
 #ifdef ESP32
