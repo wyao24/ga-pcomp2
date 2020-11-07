@@ -15,6 +15,8 @@ const wss = new WebSocket.Server({ server: server });
 
 // Handle new WebSocket connections
 wss.on('connection', (socket, request) => {
+  const remoteAddress = getRemoteAddress(request);
+
   // Print errors
   socket.on('error', (error) => {
     console.error(error);
@@ -26,14 +28,14 @@ wss.on('connection', (socket, request) => {
   });
 
   socket.on('close', () => {
-    console.log(request.socket.remoteAddress, 'left');
+    console.log(remoteAddress, 'left');
     broadcast(osc.writeMessage({
       address: "/collective/leave",
-      args: [{ type: 's', value: request.socket.remoteAddress }],
+      args: [{ type: 's', value: remoteAddress }],
     }));
   });
 
-  console.log(request.socket.remoteAddress, 'joined');
+  console.log(remoteAddress, 'joined');
 
   // Say hi to the new client
   socket.send(osc.writeMessage({ address: "/collective/hi", args: [] }));
@@ -41,7 +43,7 @@ wss.on('connection', (socket, request) => {
   // Tell everyone else we have a new client
   broadcast(osc.writeMessage({
     address: "/collective/join",
-    args: [{ type: 's', value: request.socket.remoteAddress }],
+    args: [{ type: 's', value: remoteAddress }],
   }));
 
 });
@@ -52,4 +54,15 @@ function broadcast(msg) {
       client.send(msg);
     }
   });
+}
+
+function getRemoteAddress(request) {
+  // First look for an x-forwarded-for header in case there's a proxy (like on heroku)
+  const forwardedFor = request.headers['x-forwarded-for'];
+
+  if (forwardedFor) {
+    const addresses = forwardedFor.split(',');
+    return addresses[addresses.length - 1];
+  }
+  return request.socket.remoteAddress;
 }
