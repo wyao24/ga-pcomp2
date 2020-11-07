@@ -1,0 +1,11 @@
+{
+  "name": "j5-example",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "author": "Michael Meisel",
+  "license": "ISC",
+  "dependencies": {
+    "johnny-five": "^2.0.0"
+  }
+}
