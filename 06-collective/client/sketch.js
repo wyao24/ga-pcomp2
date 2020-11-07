@@ -4,6 +4,15 @@ const SERVER_URL = 'wss://change-me.herokuapp.com'
 let x, y, b;
 const socket = new osc.WebSocketPort({ url: SERVER_URL });
 
+// Keep the connection alive
+socket.on('close', () => {
+  socket.open();
+});
+
+socket.on('error', (e) => {
+  console.error('WebSocket error', e);
+});
+
 socket.on('message', (data) => {
   console.log(data);
   if (data.address === '/3/xy') {
