@@ -62,6 +62,7 @@ float lastX = -1.0;
 float lastY = -1.0;
 
 
+
 void onXy(OSCMessage& msg) {
   float x = msg.getFloat(0);
   float y = msg.getFloat(1);
@@ -146,6 +147,14 @@ void setup() {
 }
 
 void loop() {
+  // Check for new messages on the WebSocket
+  writer.client.poll();
+
+  // Reconnect if we get disconnected
+  if (!writer.client.available(false)) {
+    writer.client.connect(serverUrl);
+  }
+
   float xAxis = ((float) analogRead(X_PIN)) / ANALOG_MAX_VALUE;
   float yAxis = ((float) analogRead(Y_PIN)) / ANALOG_MAX_VALUE;
   int button = digitalRead(BUTTON_PIN);
@@ -169,9 +178,10 @@ void loop() {
   if (lastButtonState != button) {
     // Use the same addresses as page 3 of TouchOSC's Simple layout
     OSCMessage buttonMessage("/3/toggle1");
-
     // Remember that LOW means pressed for this joystick
-    buttonMessage.add(button == HIGH ? 0.0 : 1.0);
+    float buttonValue = button == HIGH ? 0.0 : 1.0;
+
+    buttonMessage.add(buttonValue);
     buttonMessage.send(writer);
     writer.endMessage();
     lastButtonState = button;
@@ -181,7 +191,4 @@ void loop() {
   FastLED.show();
 
   delay(16);
-
-  // Check for new messages on the WebSocket
-  writer.client.poll();
 }
