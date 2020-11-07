@@ -4,7 +4,7 @@ const osc = require('osc');
 const SERIAL_DEVICE = '/dev/cu.usbmodem14201';
 
 // Change this to match the server you're trying to talk to
-const SERVER_URL = 'http://127.0.0.1:3000';
+const SERVER_URL = 'wss://change-me.herokuapp.com';
 
 // You shouldn't need to change this
 const SERIAL_BITRATE = 57600;
