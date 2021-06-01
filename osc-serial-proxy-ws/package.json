@@ -7,6 +7,6 @@
   "license": "ISC",
   "dependencies": {
     "osc": "^2.4.1",
-    "serialport": "^9.0.0"
+    "serialport": "^9.1.0"
   }
 }
