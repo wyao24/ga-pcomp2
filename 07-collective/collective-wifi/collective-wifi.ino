@@ -28,7 +28,7 @@ using namespace websockets;
 
 const char ssid[] = "*****************"; // your network SSID (name)
 const char pass[] = "*******"; // your network password
-const char serverUrl[] = "wss://change-me.herokuapp.com"; // The server you want to connect to
+const char serverUrl[] = "ws://change-me.herokuapp.com"; // The server you want to connect to
 
 
 
@@ -132,9 +132,18 @@ void setup() {
   writer.client.onMessage(onMessageCallback);
 
   // Connect to WebSockets server
-  writer.client.connect(serverUrl);
-  Serial.print("Connected to ");
+  Serial.print("Connecting to ");
   Serial.println(serverUrl);
+
+  bool connected = writer.client.connect(serverUrl);
+
+  while (!connected) {
+    Serial.print(".");
+    connected = writer.client.connect(serverUrl);
+    delay(500);
+  }
+
+  Serial.println("Connected!");
 
   // Set up LEDs
   FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);

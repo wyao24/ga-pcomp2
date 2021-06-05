@@ -1,5 +1,5 @@
 // Change this to the domain name of your Heroku server
-const SERVER_URL = 'wss://change-me.herokuapp.com'
+const SERVER_URL = 'ws://change-me.herokuapp.com'
 
 let x, y, b;
 const socket = new osc.WebSocketPort({ url: SERVER_URL });
