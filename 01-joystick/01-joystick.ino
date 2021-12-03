@@ -23,4 +23,5 @@ void loop() {
   // Therefore, 1 means off and 0 means on.
   Serial.print(button == HIGH ? "off" : "on");
   Serial.println();
+  delay(20);
 }
