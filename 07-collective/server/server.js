@@ -1,68 +1,67 @@
-const express = require('express');
+const ip = require('ip');
 const osc = require('osc');
-const WebSocket = require('ws');
 
-const WEB_SERVER_PORT = process.env.PORT || 3000;
+const LOCAL_ADDRESS = '0.0.0.0';
+const OSC_UDP_PORT = process.env.PORT || 9000;
 
-// Create an express web server
-const app = express();
-const server = app.listen(WEB_SERVER_PORT, () => {
-  console.log('Web server listening on port', WEB_SERVER_PORT);
+const server = new osc.UDPPort({
+  localAddress: LOCAL_ADDRESS,
+  localPort: OSC_UDP_PORT,
+  metadata: true,
 });
 
-// Create a WebSocket server
-const wss = new WebSocket.Server({ server: server });
+const clients = {};
 
-// Handle new WebSocket connections
-wss.on('connection', (socket, request) => {
-  const remoteAddress = getRemoteAddress(request);
+server.on('ready', () => {
+  console.log('Welcome to the collective');
+  console.log('IP Address:', ip.address());
+  console.log('Port:', OSC_UDP_PORT);
+  console.log();
 
-  // Print errors
-  socket.on('error', (error) => {
-    console.error(error);
-  });
+  server.on('message', (msg, _, request) => {
+    const senderAddress = `${request.address}:${request.port}`;
 
-  // Broadcast any received messages to all of the clients
-  socket.on('message', (msg) => {
-    broadcast(msg);
-  });
+    // Keep a UDPPort object for sending messages back to each the clients we've heard from
+    if (clients[senderAddress] == null) {
+      const newClient = new osc.UDPPort({
+        localAddress: LOCAL_ADDRESS,
+        localPort: 0, // Let the OS pick a random, unused port
+        remoteAddress: request.address,
+        remotePort: request.port,
+        metadata: true,
+      });
 
-  socket.on('close', () => {
-    console.log(remoteAddress, 'left');
-    broadcast(osc.writeMessage({
-      address: "/collective/leave",
-      args: [{ type: 's', value: remoteAddress }],
-    }));
-  });
+      clients[senderAddress] = newClient;
 
-  console.log(remoteAddress, 'joined');
+      // Wait for the port to be open before using it
+      newClient.on('open', () => {
+        newClient.isOpen = true;
+      });
 
-  // Say hi to the new client
-  socket.send(osc.writeMessage({ address: "/collective/hi", args: [] }));
+      // If there's ever an error on the port or it gets closed, remove it from the list.
+      newClient.on('error', (error) => {
+        console.log('xx', senderAddress, 'ERROR', error);
+        delete clients[senderAddress];
+      });
 
-  // Tell everyone else we have a new client
-  broadcast(osc.writeMessage({
-    address: "/collective/join",
-    args: [{ type: 's', value: remoteAddress }],
-  }));
+      newClient.on('close', () => {
+        console.log('xx', senderAddress, 'CLOSED');
+        delete clients[senderAddress];
+      });
 
-});
-
-function broadcast(msg) {
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(msg);
+      newClient.open();
     }
+
+    console.log('<-', senderAddress, msg.address, msg.args.map(a => a.value));
+
+    // Broadcast the message to all known clients
+    Object.entries(clients).forEach(([clientAddress, client]) => {
+      if (client.isOpen) {
+        console.log('   ->', clientAddress, msg.address, msg.args.map(a => a.value));
+        client.send(msg);
+      }
+    });
   });
-}
+});
 
-function getRemoteAddress(request) {
-  // First look for an x-forwarded-for header in case there's a proxy (like on heroku)
-  const forwardedFor = request.headers['x-forwarded-for'];
-
-  if (forwardedFor) {
-    const addresses = forwardedFor.split(',');
-    return addresses[addresses.length - 1];
-  }
-  return request.socket.remoteAddress;
-}
+server.open();

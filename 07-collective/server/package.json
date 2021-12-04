@@ -6,15 +6,13 @@
   "author": "Michael Meisel",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.17.1",
-    "osc": "^2.4.1",
-    "ws": "^7.4.6"
+    "ip": "^1.1.5",
+    "osc": "^2.4.2"
   },
   "engines": {
     "node": "12.x"
   },
   "scripts": {
-    "start": "node server.js",
-    "deploy": "cd ../.. && git subtree push --prefix 06-collective/server heroku master"
+    "start": "node server.js"
   }
 }

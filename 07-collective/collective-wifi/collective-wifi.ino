@@ -3,14 +3,10 @@
 #else
 #include <WiFi.h>
 #endif
-#include <ArduinoWebsockets.h>
 #include <FastLED.h>
 #include <OSCMessage.h>
 #include <OSCBundle.h>
 #include <OSCData.h>
-#include <Print.h>
-
-using namespace websockets;
 
 #define X_PIN A9
 #define Y_PIN A7
@@ -26,83 +22,28 @@ using namespace websockets;
 #define ANALOG_MAX_VALUE 1023.0
 #endif
 
-const char ssid[] = "*****************"; // your network SSID (name)
-const char pass[] = "*******"; // your network password
-const char serverUrl[] = "ws://change-me.herokuapp.com"; // The server you want to connect to
+// Ensure these match your setup before uploading!
+char ssid[] = "*****************"; // your network SSID (name)
+char pass[] = "*******"; // your network password
+const IPAddress outIp(10,10,10,10); // remote IP of your collective server
+const unsigned int outPort = 9000; // remote port of your collective server
 
 
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// This is an implementation detail, it makes the WebsocketsClient and OSC interfaces compatible
+// A UDP instance to let us send and receive UDP packets over the network
+WiFiUDP network;
 
-class WebsocketsWriter : public Print {
-  public:
-    // A client that will allow us to connect to a server via WebSockets
-    WebsocketsClient client;
-
-    size_t write(uint8_t character) {
-      buffer_.push_back((char) character);
-      return 1;
-    }
-
-    void endMessage() {
-      client.sendBinary(buffer_.data(), buffer_.size());
-      buffer_.clear();
-    }
-
-  private:
-    std::vector<char> buffer_;
-};
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-WebsocketsWriter writer;
+// The state of our LED strip
 CRGB leds[NUM_LEDS];
-int lastButtonState = -1;
-float lastX = -1.0;
-float lastY = -1.0;
+
+// Our unique hue, assigned at startup
+int myHue;
+
+// The state of the joystick, used to ensure we only send messages when it changes
+int lastButtonState = HIGH;
+bool lastCentered = true;
 
 
-
-void onXy(OSCMessage& msg) {
-  float x = msg.getFloat(0);
-  float y = msg.getFloat(1);
-
-  // X will change position, Y will change hue
-  int whichLed = round(x * (NUM_LEDS - 1));
-  int newHue = round(y * 255);
-
-  leds[whichLed].setHue(newHue);
-}
-
-void onToggle(OSCMessage& msg) {
-  // Reset everything to red when the button is pressed
-  if (msg.getFloat(0) == 1.0) {
-    for (int i = 0; i < NUM_LEDS; i++) {
-      leds[i] = CRGB::Red;
-    }
-  }
-}
-
-void onMessageCallback(WebsocketsMessage message) {
-  OSCMessage oscMessage;
-  // Why message.c_str()? See https://github.com/gilmaimon/ArduinoWebsockets#binary-data
-  oscMessage.fill((uint8_t*) message.c_str(), message.length());
-
-  if (oscMessage.hasError()) {
-    OSCErrorCode error = oscMessage.getError();
-    Serial.print("error: ");
-    Serial.println(error);
-    return;
-  }
-
-  // Print out messages for debugging
-  oscMessage.send(Serial);
-  Serial.println();
-
-  oscMessage.dispatch("/3/xy", onXy);
-  oscMessage.dispatch("/3/toggle1", onToggle);
-  // You can handle more addresses here if you like!
-}
 
 void setup() {
   pinMode(X_PIN, INPUT);
@@ -119,85 +60,187 @@ void setup() {
   WiFi.begin(ssid, pass);
 
   while (WiFi.status() != WL_CONNECTED) {
+    if (WiFi.status() == WL_NO_SSID_AVAIL) {
+      Serial.print("Could not find ");
+      Serial.print(ssid);
+      Serial.println(", check your SSID");
+    }
+    else if (WiFi.status() == WL_CONNECT_FAILED || WiFi.status() == WL_CONNECTION_LOST) {
+      Serial.print("\nConnection failed! Retrying ");
+      Serial.println(ssid);
+      WiFi.begin(ssid, pass);
+    }
+    else {
+      Serial.print(".");
+    }
     delay(500);
-    Serial.print(".");
   }
-  Serial.println("");
 
-  Serial.println("WiFi connected");
+  Serial.println("\nWiFi connected");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
+  Serial.println("");
 
-  // Setup callback
-  writer.client.onMessage(onMessageCallback);
+  // Pick a hue
+  myHue = random(256);
 
-  // Connect to WebSockets server
-  Serial.print("Connecting to ");
-  Serial.println(serverUrl);
-
-  bool connected = writer.client.connect(serverUrl);
-
-  while (!connected) {
-    Serial.print(".");
-    connected = writer.client.connect(serverUrl);
-    delay(500);
-  }
-
-  Serial.println("Connected!");
+  Serial.print("My hue: ");
+  Serial.println(myHue);
 
   // Set up LEDs
   FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
   FastLED.setBrightness(50);
 
-  // Start them all out red
+  // Start with random colors
   for (int i = 0; i < NUM_LEDS; i++) {
-    leds[i] = CRGB::Red;
+    leds[i] = CHSV(random(256), 255, 255);
   }
+  FastLED.show();
 }
 
 void loop() {
-  // Check for new messages on the WebSocket
-  writer.client.poll();
+  readMessage();
+  sendMessage();
 
-  // Reconnect if we get disconnected
-  if (!writer.client.available(false)) {
-    writer.client.connect(serverUrl);
+  // Call show at the end of the loop to display any changes
+  FastLED.show();
+  // Short delay to prevent sending too many OSC messages
+  delay(16);
+}
+
+
+
+void readMessage() {
+  OSCMessage oscMessage;
+
+  int size = network.parsePacket();
+
+  if (size > 0) {
+    while (size--) {
+      oscMessage.fill(network.read());
+    }
+
+    if (oscMessage.hasError()) {
+      OSCErrorCode error = oscMessage.getError();
+      Serial.print("error: ");
+      Serial.println(error);
+      return;
+    }
+
+    // Print out messages for debugging
+    oscMessage.send(Serial);
+    Serial.println();
+
+    oscMessage.dispatch("/xy", onXy);
+    oscMessage.dispatch("/toggle", onToggle);
+    // You can handle more addresses here if you like!
   }
+}
 
+void sendMessage() {
   float xAxis = ((float) analogRead(X_PIN)) / ANALOG_MAX_VALUE;
   float yAxis = ((float) analogRead(Y_PIN)) / ANALOG_MAX_VALUE;
   int button = digitalRead(BUTTON_PIN);
+  bool centered = xAxis > 0.4 && xAxis < 0.6 && yAxis > 0.4 && yAxis < 0.6;
 
-  // Require a 2% change before we send a new value to avoid sending continuously
-  if (abs(xAxis - lastX) >= 0.02 || abs(yAxis - lastY) >= 0.02) {
-    // Use the same addresses as page 3 of TouchOSC's Simple layout
-    OSCMessage xyMessage("/3/xy");
+  // Don't send the position continuously when the joystick stays centered
+  if (!centered || !lastCentered) {
+    OSCMessage xyMessage("/xy");
 
     // Add both the x and y values to the same message, this makes sure they change together.
-    // (Also, this is what TouchOSC does.)
     xyMessage.add(xAxis);
     xyMessage.add(yAxis);
+    // Add myHue at the end so we can tell players apart
+    xyMessage.add(myHue);
 
-    xyMessage.send(writer);
-    writer.endMessage();
-    lastX = xAxis;
-    lastY = yAxis;
+    network.beginPacket(outIp, outPort);
+    xyMessage.send(network);
+    network.endPacket();
+    lastCentered = centered;
   }
 
   if (lastButtonState != button) {
-    // Use the same addresses as page 3 of TouchOSC's Simple layout
-    OSCMessage buttonMessage("/3/toggle1");
+    OSCMessage buttonMessage("/toggle");
     // Remember that LOW means pressed for this joystick
     float buttonValue = button == HIGH ? 0.0 : 1.0;
 
     buttonMessage.add(buttonValue);
-    buttonMessage.send(writer);
-    writer.endMessage();
+    // Add myHue at the end so we can tell players apart
+    buttonMessage.add(myHue);
+    network.beginPacket(outIp, outPort);
+    buttonMessage.send(network);
+    network.endPacket();
     lastButtonState = button;
   }
+}
 
-  // Call show at the end of the loop to display any changes
-  FastLED.show();
+void onXy(OSCMessage& msg) {
+  float x = msg.getFloat(0);
+  float y = msg.getFloat(1);
+  int playerId = msg.getInt(2);
+  CRGB playerColor = CHSV(playerId, 255, 255);
 
-  delay(16);
+  // Uses the joystick to "spread" the player's color.
+  // X sets the direction, Y sets the speed, and the ID tells us the color.
+
+  // If the X axis is in the center, exit the function here and don't change anything.
+  if (x > 0.4 && x < 0.6) {
+    return;
+  }
+
+  // We will color in between 1 and 3 pixels at a time, depending on the Y axis value.
+  int howMany = round(y * 2 + 1);
+
+  // Now the trickiest part -- finding a block of color to spread
+  int whichLed = 0;
+
+  // Look for a block of the player's color, starting from the beginning.
+  while (whichLed < NUM_LEDS && leds[whichLed] != playerColor) {
+    whichLed++;
+  }
+
+  if (whichLed == NUM_LEDS) {
+    // We reached the end without finding the player's color, start at a random location instead.
+    whichLed = random(NUM_LEDS);
+  }
+
+  // Spread the edge of this color in the specified direction. Stop if we hit the end of the strip.
+  if (x > 0.5) {
+    // Find the right edge
+    while (whichLed < NUM_LEDS && leds[whichLed] == playerColor) {
+      whichLed++;
+    }
+    // Now spread!
+    while (whichLed < NUM_LEDS && howMany > 0) {
+      leds[whichLed] = playerColor;
+      whichLed++;
+      howMany--;
+    }
+  }
+  else {
+    // Find the left edge
+    while (whichLed >= 0 && leds[whichLed] == playerColor) {
+      whichLed--;
+    }
+    // Now spread!
+    while (whichLed >= 0 && howMany > 0) {
+      leds[whichLed] = playerColor;
+      whichLed--;
+      howMany--;
+    }
+  }
+}
+
+void onToggle(OSCMessage& msg) {
+  // Turn everything that matches the player's color to black when the button is pressed
+  if (msg.getFloat(0) == 1.0) {
+    int playerId = msg.getInt(1);
+    CRGB playerColor = CHSV(playerId, 255, 255);
+
+    for (int i = 0; i < NUM_LEDS; i++) {
+      if (leds[i] == playerColor) {
+        leds[i] = CRGB::Black;
+      }
+    }
+  }
 }
