@@ -6,6 +6,9 @@
   "author": "Michael Meisel",
   "license": "ISC",
   "dependencies": {
-    "johnny-five": "^2.0.0"
+    "johnny-five": "^2.1.0"
+  },
+  "scripts": {
+    "start": "node index.js"
   }
 }
