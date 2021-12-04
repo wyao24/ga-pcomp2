@@ -1,4 +1,4 @@
-const internalIp = require('internal-ip');
+const ip = require('ip');
 const osc = require('osc');
 
 // Change this to match the port you selected in the Arduino IDE
@@ -18,20 +18,23 @@ const udpPort = new osc.UDPPort({
   localPort: INBOUND_PORT,
   remoteAddress: OUTBOUND_ADDRESS,
   remotePort: OUTBOUND_PORT,
+  metadata: true,
 });
 
 // Set up the serial port to talk to the Arduino
 const serialPort = new osc.SerialPort({
   bitrate: SERIAL_BITRATE,
   devicePath: SERIAL_DEVICE,
+  metadata: true,
 });
 
 let serialPortReady = false;
 
 // Once our inbound network port is ready, print our IP address and start listening for messages
 udpPort.on('ready', () => {
-  console.log('LAN IP Address:', internalIp.v4.sync());
-  console.log('Listening on port', udpPort.options.localPort);
+  console.log('IP Address:', ip.address());
+  console.log('Port:', udpPort.options.localPort);
+  console.log();
 
   // Forward incoming messages over serial
   udpPort.on('message', (msg) => {
@@ -51,6 +54,7 @@ udpPort.on('ready', () => {
 // Once we've connected to the serial port, start listening for messages
 serialPort.on('ready', () => {
   console.log('Connected to serial device', serialPort.options.devicePath);
+  console.log();
   serialPortReady = true;
 
   serialPort.on('message', (msg) => {
