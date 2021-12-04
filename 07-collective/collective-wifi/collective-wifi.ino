@@ -181,40 +181,28 @@ void onXy(OSCMessage& msg) {
   CRGB playerColor = CHSV(playerId, 255, 255);
 
   // Uses the joystick to "spread" the player's color.
-  // X sets the direction, Y sets the speed, and the ID tells us the color.
+  // X sets the direction, Y sets the starting position, and the ID tells us the color.
 
   // If the X axis is in the center, exit the function here and don't change anything.
+  // We need a direction.
   if (x > 0.4 && x < 0.6) {
     return;
   }
 
-  // We will color in between 1 and 3 pixels at a time, depending on the Y axis value.
-  int howMany = round(y * 2 + 1);
+  // Start at a location determined by the Y axis
+  int whichLed = round(y * (NUM_LEDS - 1));
 
-  // Now the trickiest part -- finding a block of color to spread
-  int whichLed = 0;
-
-  // Look for a block of the player's color, starting from the beginning.
-  while (whichLed < NUM_LEDS && leds[whichLed] != playerColor) {
-    whichLed++;
-  }
-
-  if (whichLed == NUM_LEDS) {
-    // We reached the end without finding the player's color, start at a random location instead.
-    whichLed = random(NUM_LEDS);
-  }
-
-  // Spread the edge of this color in the specified direction. Stop if we hit the end of the strip.
+  // If this pixel is already the right color, find the edge of the "block" in the specified
+  // direction, stopping if we hit the end of the strip.
   if (x > 0.5) {
     // Find the right edge
     while (whichLed < NUM_LEDS && leds[whichLed] == playerColor) {
       whichLed++;
     }
-    // Now spread!
-    while (whichLed < NUM_LEDS && howMany > 0) {
+
+    // Spread out!
+    if (whichLed < NUM_LEDS) {
       leds[whichLed] = playerColor;
-      whichLed++;
-      howMany--;
     }
   }
   else {
@@ -222,11 +210,10 @@ void onXy(OSCMessage& msg) {
     while (whichLed >= 0 && leds[whichLed] == playerColor) {
       whichLed--;
     }
-    // Now spread!
-    while (whichLed >= 0 && howMany > 0) {
+
+    // Spread out!
+    if (whichLed >= 0) {
       leds[whichLed] = playerColor;
-      whichLed--;
-      howMany--;
     }
   }
 }
