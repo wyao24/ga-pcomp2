@@ -6,7 +6,7 @@
   "author": "Michael Meisel",
   "license": "ISC",
   "dependencies": {
-    "osc": "^2.4.2"
+    "osc": "^2.4.3"
   },
   "engines": {
     "node": "12.x"

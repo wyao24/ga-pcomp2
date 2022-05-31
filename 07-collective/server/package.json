@@ -6,8 +6,8 @@
   "author": "Michael Meisel",
   "license": "ISC",
   "dependencies": {
-    "ip": "^1.1.5",
-    "osc": "^2.4.2"
+    "ip": "^1.1.8",
+    "osc": "^2.4.3"
   },
   "engines": {
     "node": "12.x"
