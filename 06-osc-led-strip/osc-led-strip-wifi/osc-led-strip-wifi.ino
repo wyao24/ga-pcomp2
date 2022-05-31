@@ -20,7 +20,7 @@
 #include <FastLED.h>
 
 // How many leds are in the strip?
-#define NUM_LEDS 60
+#define NUM_LEDS 144
 
 // Which pin is the data line connected to?
 #define DATA_PIN 21
@@ -43,7 +43,7 @@ void setup() {
 
   // Set up the LEDs and tell the controller about them
   FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
-  FastLED.setBrightness(50);
+  FastLED.setBrightness(18);
 
   // Connect to WiFi network
   Serial.println();

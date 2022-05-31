@@ -12,7 +12,7 @@
 #define Y_PIN A7
 #define BUTTON_PIN 14
 
-#define NUM_LEDS 60
+#define NUM_LEDS 144
 #define DATA_PIN 21
 
 #ifdef ESP32
@@ -89,7 +89,7 @@ void setup() {
 
   // Set up LEDs
   FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
-  FastLED.setBrightness(50);
+  FastLED.setBrightness(18);
 
   // Start with random colors
   for (int i = 0; i < NUM_LEDS; i++) {

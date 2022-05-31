@@ -8,7 +8,7 @@
 #define Y_PIN A1
 #define BUTTON_PIN 6
 
-#define NUM_LEDS 60
+#define NUM_LEDS 144
 #define DATA_PIN 7
 
 #define ANALOG_MAX_VALUE 1023.0
@@ -43,7 +43,7 @@ void setup() {
 
   // Set up LEDs
   FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
-  FastLED.setBrightness(50);
+  FastLED.setBrightness(18);
 
   // Start with random colors
   for (int i = 0; i < NUM_LEDS; i++) {
