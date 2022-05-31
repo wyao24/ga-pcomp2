@@ -6,7 +6,7 @@
 #define JOYSTICK_BUTTON_PIN 6
 
 // How many leds are in the strip?
-#define NUM_LEDS 144
+#define NUM_LEDS 72
 
 // Which pin is the LED strip data line connected to?
 #define LED_DATA_PIN 7
@@ -27,7 +27,7 @@ void setup() {
 
   // Set up the LEDs and tell the controller about them
   FastLED.addLeds<NEOPIXEL, LED_DATA_PIN>(leds, NUM_LEDS);
-  FastLED.setBrightness(18);
+  FastLED.setBrightness(40);
 }
 
 void loop() {
