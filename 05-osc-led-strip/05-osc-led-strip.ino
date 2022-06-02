@@ -25,6 +25,9 @@
 // Which pin is the data line connected to?
 #define DATA_PIN 21
 
+// Maximum brightness, be careful of power consumption!
+#define MAX_BRIGHTNESS 40
+
 // This is an array of leds.  One item for each led in your strip.
 CRGB leds[NUM_LEDS];
 
@@ -43,7 +46,7 @@ void setup() {
 
   // Set up the LEDs and tell the controller about them
   FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
-  FastLED.setBrightness(40);
+  FastLED.setBrightness(MAX_BRIGHTNESS);
 
   // Connect to WiFi network
   Serial.println();
@@ -73,20 +76,6 @@ void setup() {
 
 }
 
-void led(OSCMessage &msg) {
-  bool turnOn = msg.getFloat(0) > 0.0;
-  Serial.print("led:");
-  Serial.println(turnOn);
-
-  // Update the whole strip
-  for (int i = 0; i < NUM_LEDS; i++) {
-    // TouchOSC toggles send either 0.0 or 1.0
-    // See https://github.com/FastLED/FastLED/wiki/Pixel-reference for available colors and more
-    leds[i] = turnOn ? CRGB::Red : CRGB::Black;
-  }
-  FastLED.show();
-}
-
 void loop() {
   OSCMessage msg;
   int size = Udp.parsePacket();
@@ -112,11 +101,46 @@ void loop() {
       // "/1/toggle2"
       // "/1/toggle3"
       // "/1/toggle4"
-      msg.dispatch("/1/toggle1", led);
+      msg.dispatch("/1/fader1", setRed);
+      msg.dispatch("/1/fader2", setGreen);
+      msg.dispatch("/1/fader3", setBlue);
     } else {
       OSCErrorCode error = msg.getError();
       Serial.print("error: ");
       Serial.println(error);
     }
   }
+}
+
+void setRed(OSCMessage &msg) {
+  int newValue = msg.getFloat(0) * 255;
+  Serial.print("red:");
+  Serial.println(newValue);
+
+  for (int i = 0; i < NUM_LEDS; i++) {
+    leds[i] = CRGB(newValue, leds[i].green, leds[i].blue);
+  }
+  FastLED.show();
+}
+
+void setGreen(OSCMessage &msg) {
+  int newValue = msg.getFloat(0) * 255;
+  Serial.print("green:");
+  Serial.println(newValue);
+
+  for (int i = 0; i < NUM_LEDS; i++) {
+    leds[i] = CRGB(leds[i].red, newValue, leds[i].blue);
+  }
+  FastLED.show();
+}
+
+void setBlue(OSCMessage &msg) {
+  int newValue = msg.getFloat(0) * 255;
+  Serial.print("blue:");
+  Serial.println(newValue);
+
+  for (int i = 0; i < NUM_LEDS; i++) {
+    leds[i] = CRGB(leds[i].red, leds[i].green, newValue);
+  }
+  FastLED.show();
 }
