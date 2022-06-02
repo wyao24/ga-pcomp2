@@ -22,13 +22,13 @@
 char ssid[] = "*****************"; // your network SSID (name)
 char pass[] = "*******"; // your network password
 
+const IPAddress outIp(10,10,10,10); // IP of the device you want to send to
+const unsigned int outPort = 9000; // Port where that device will receive OSC messages
+
 // A UDP instance to let us send and receive packets over UDP
 WiFiUDP Udp;
-const IPAddress outIp(10,10,10,10); // remote IP of your computer
-const unsigned int outPort = 9999; // remote port to receive OSC
+bool lastCentered = false;
 int lastButtonState = -1;
-float lastX = -1.0;
-float lastY = -1.0;
 
 void setup() {
   pinMode(X_PIN, INPUT);
@@ -56,27 +56,28 @@ void setup() {
 }
 
 void loop() {
-  float xAxis = ((float) analogRead(X_PIN)) / ANALOG_MAX_VALUE;
-  float yAxis = ((float) analogRead(Y_PIN)) / ANALOG_MAX_VALUE;
+  float xAxis = analogRead(X_PIN) / ANALOG_MAX_VALUE;
+  float yAxis = analogRead(Y_PIN) / ANALOG_MAX_VALUE;
   int button = digitalRead(BUTTON_PIN);
+  bool centered = xAxis > 0.45 && xAxis < 0.55 && yAxis > 0.45 && yAxis < 0.55;
 
-  // Require a 2% change before we send a new value to avoid sending continuously
-  if (abs(xAxis - lastX) >= 0.02 || abs(yAxis - lastY) >= 0.02) {
+  // Don't send the position continuously when the joystick stays centered
+  if (!centered || !lastCentered) {
     // Use the same addresses as page 3 of TouchOSC's Simple layout
     OSCMessage xyMessage("/3/xy");
 
     // Add both the x and y values to the same message, this makes sure they change together.
-    // (Also, this is what TouchOSC does.)
+    // (Also, this is what TouchOSC expects.)
     xyMessage.add(xAxis);
     xyMessage.add(yAxis);
 
     Udp.beginPacket(outIp, outPort);
     xyMessage.send(Udp);
     Udp.endPacket();
-    lastX = xAxis;
-    lastY = yAxis;
+    lastCentered = centered;
   }
 
+  // Only send a message when the button state changes
   if (lastButtonState != button) {
     OSCMessage buttonMessage("/3/toggle1");
 
