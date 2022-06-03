@@ -22,49 +22,29 @@ server.on('ready', () => {
     const senderAddress = `${request.address}:${request.port}`;
     const senderGroup = msg.args[0].value;
 
-    // Keep a UDPPort object for sending messages back to each the clients we've heard from
+    // Keep track of clients so we can send messages back to each the clients we've heard from
     if (clients[senderAddress] == null) {
-      const newClient = {
+      clients[senderAddress] = {
         group: senderGroup,
-        port: new osc.UDPPort({
-          localAddress: LOCAL_ADDRESS,
-          localPort: 0, // Let the OS pick a random, unused port
-          remoteAddress: request.address,
-          remotePort: request.port,
-          metadata: true,
-        })
+        address: request.address,
+        port: request.port,
       };
-
-      clients[senderAddress] = newClient;
-
-      // Wait for the port to be open before using it
-      newClient.port.on('open', () => {
-        newClient.port.isOpen = true;
-      });
-
-      // If there's ever an error on the port or it gets closed, remove it from the list.
-      newClient.port.on('error', (error) => {
-        console.log('xx', senderAddress, 'ERROR', error);
-        delete clients[senderAddress];
-      });
-
-      newClient.port.on('close', () => {
-        console.log('xx', senderAddress, 'CLOSED');
-        delete clients[senderAddress];
-      });
-
-      newClient.port.open();
     }
 
     console.log('<-', senderAddress, msg.address, msg.args.map(a => a.value));
 
     // Broadcast the message to all known clients in the same group
     Object.entries(clients).forEach(([clientAddress, client]) => {
-      if (client.port.isOpen && client.group == senderGroup) {
+      if (client.group == senderGroup) {
         console.log('   ->', clientAddress, msg.address, msg.args.map(a => a.value));
-        client.port.send(msg);
+        server.send(msg, client.address, client.port);
       }
     });
+  });
+
+  server.on('error', (err) => {
+    // TODO: can we remove clients if we get an error?
+    console.error(err);
   });
 });
 
