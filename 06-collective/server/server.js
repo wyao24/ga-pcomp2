@@ -19,24 +19,23 @@ server.on('ready', () => {
   console.log();
 
   server.on('message', (msg, _, request) => {
-    const senderAddress = `${request.address}:${request.port}`;
     const senderGroup = msg.args[0].value;
+    const senderPlayer = msg.args[1].value;
+    const clientKey = `${senderGroup}/${senderPlayer}`;
 
-    // Keep track of clients so we can send messages back to each the clients we've heard from
-    if (clients[senderAddress] == null) {
-      clients[senderAddress] = {
-        group: senderGroup,
-        address: request.address,
-        port: request.port,
-      };
-    }
+    // Keep track of clients (by group name and player number) so we can send messages back to them
+    clients[clientKey] = {
+      group: senderGroup,
+      address: request.address,
+      port: request.port,
+    };
 
-    console.log('<-', senderAddress, msg.address, msg.args.map(a => a.value));
+    console.log('<-', `${request.address}:${request.port}`, msg.address, msg.args.map(a => a.value));
 
     // Broadcast the message to all known clients in the same group
-    Object.entries(clients).forEach(([clientAddress, client]) => {
+    Object.entries(clients).forEach(([clientKey, client]) => {
       if (client.group == senderGroup) {
-        console.log('   ->', clientAddress, msg.address, msg.args.map(a => a.value));
+        console.log('   ->', `${client.address}:${client.port}`, msg.address, msg.args.map(a => a.value));
         server.send(msg, client.address, client.port);
       }
     });
