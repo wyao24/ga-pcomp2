@@ -20,45 +20,49 @@ server.on('ready', () => {
 
   server.on('message', (msg, _, request) => {
     const senderAddress = `${request.address}:${request.port}`;
+    const senderGroup = msg.args[0].value;
 
     // Keep a UDPPort object for sending messages back to each the clients we've heard from
     if (clients[senderAddress] == null) {
-      const newClient = new osc.UDPPort({
-        localAddress: LOCAL_ADDRESS,
-        localPort: 0, // Let the OS pick a random, unused port
-        remoteAddress: request.address,
-        remotePort: request.port,
-        metadata: true,
-      });
+      const newClient = {
+        group: senderGroup,
+        port: new osc.UDPPort({
+          localAddress: LOCAL_ADDRESS,
+          localPort: 0, // Let the OS pick a random, unused port
+          remoteAddress: request.address,
+          remotePort: request.port,
+          metadata: true,
+        })
+      };
 
       clients[senderAddress] = newClient;
 
       // Wait for the port to be open before using it
-      newClient.on('open', () => {
-        newClient.isOpen = true;
+      newClient.port.on('open', () => {
+        newClient.port.isOpen = true;
       });
 
       // If there's ever an error on the port or it gets closed, remove it from the list.
-      newClient.on('error', (error) => {
+      newClient.port.on('error', (error) => {
         console.log('xx', senderAddress, 'ERROR', error);
         delete clients[senderAddress];
       });
 
-      newClient.on('close', () => {
+      newClient.port.on('close', () => {
         console.log('xx', senderAddress, 'CLOSED');
         delete clients[senderAddress];
       });
 
-      newClient.open();
+      newClient.port.open();
     }
 
     console.log('<-', senderAddress, msg.address, msg.args.map(a => a.value));
 
-    // Broadcast the message to all known clients
+    // Broadcast the message to all known clients in the same group
     Object.entries(clients).forEach(([clientAddress, client]) => {
-      if (client.isOpen) {
+      if (client.port.isOpen && client.group == senderGroup) {
         console.log('   ->', clientAddress, msg.address, msg.args.map(a => a.value));
-        client.send(msg);
+        client.port.send(msg);
       }
     });
   });

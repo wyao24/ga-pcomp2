@@ -22,11 +22,23 @@
 #define ANALOG_MAX_VALUE 1023.0
 #endif
 
-// Ensure these match your setup before uploading!
-char ssid[] = "*****************"; // your network SSID (name)
-char pass[] = "*******"; // your network password
+// Feel free to change this, it will change the number of colored dots on the strip
+#define MAX_PLAYERS 8
+
+
+
+// ==== SET THESE CONFIGURATION VALUES BEFORE UPLOADING! ====
+
+const char ssid[] = "*****************"; // your network SSID (name)
+const char pass[] = "*******"; // your network password
+
 const IPAddress outIp(10,10,10,10); // remote IP of your collective server
 const unsigned int outPort = 9000; // remote port of your collective server
+
+const char groupName[] = "change-me"; // pick a unique name for your group
+const int myPlayer = 0; // pick a unique number for yourself (0 to groupSize - 1)
+
+// ==== END OF CONFIGURATION ====
 
 
 
@@ -36,8 +48,8 @@ WiFiUDP network;
 // The state of our LED strip
 CRGB leds[NUM_LEDS];
 
-// Our unique hue, assigned at startup
-int myHue;
+// This is our "game state", just remember where each player is currently
+int playerPosition[MAX_PLAYERS];
 
 // The state of the joystick, used to ensure we only send messages when it changes
 int lastButtonState = HIGH;
@@ -77,35 +89,113 @@ void setup() {
   }
 
   Serial.println("\nWiFi connected");
-  Serial.println("IP address: ");
+  Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
-  Serial.println("");
+  Serial.println();
 
-  // Pick a hue
-  myHue = random(256);
+  // Ensure the player number isn't out of range
+  if (myPlayer >= MAX_PLAYERS) {
+    Serial.print("Invalid player number! It must be less than ");
+    Serial.print(MAX_PLAYERS);
+    Serial.print(", you picked ");
+    Serial.println(myPlayer);
+    // This just runs forever, stopping execution
+    while (true);
+  }
 
-  Serial.print("My hue: ");
-  Serial.println(myHue);
+  Serial.print("Welcome, ");
+  Serial.print(groupName);
+  Serial.print(" player ");
+  Serial.print(myPlayer);
+  Serial.println("!");
+  Serial.println();
+
+  // Start all players spaced out evenly along the strip
+  for (int i = 0; i < MAX_PLAYERS; i++) {
+    playerPosition[i] = NUM_LEDS * getPositionsPerLed() * i / MAX_PLAYERS;
+  }
 
   // Set up LEDs
-  FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
+  FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(40);
 
-  // Start with random colors
-  for (int i = 0; i < NUM_LEDS; i++) {
-    leds[i] = CHSV(random(256), 255, 255);
-  }
+  // Blank the LED strip
+  fill_solid(leds, NUM_LEDS, CRGB::Black);
   FastLED.show();
 }
 
 void loop() {
-  readMessage();
+  // Start by dimming what's currently on the LED (the previous "frame")
+  fadeToBlackBy(leds, NUM_LEDS, 32);
+
+  showPlayerPositions();
   sendMessage();
+  readMessage();
 
   // Call show at the end of the loop to display any changes
   FastLED.show();
   // Short delay to prevent sending too many OSC messages
   delay(16);
+}
+
+
+
+void sendMessage() {
+  float xAxis = analogRead(X_PIN) / ANALOG_MAX_VALUE;
+  float yAxis = analogRead(Y_PIN) / ANALOG_MAX_VALUE;
+  int button = digitalRead(BUTTON_PIN);
+  bool centered = xAxis > 0.45 && xAxis < 0.55 && yAxis > 0.45 && yAxis < 0.55;
+
+  // Don't send the position continuously when the joystick stays centered
+  if (!centered || !lastCentered) {
+    OSCMessage xyMessage("/xy");
+
+    // Add group and player at the beginning so we can tell where messages are coming from
+    xyMessage.add(groupName);
+    xyMessage.add(myPlayer);
+
+    // Add both the x and y values to the same message, this makes sure they change together.
+    // If we're centered, send the actual center (it looks nicer that way)
+    if (centered) {
+      xyMessage.add(0.5f);
+      xyMessage.add(0.5f);
+    }
+    else {
+      xyMessage.add(xAxis);
+      xyMessage.add(yAxis);
+    }
+
+    network.beginPacket(outIp, outPort);
+    xyMessage.send(network);
+    network.endPacket();
+
+    Serial.print("OUT ");
+    xyMessage.send(Serial);
+    Serial.println();
+
+    lastCentered = centered;
+  }
+
+  if (lastButtonState != button) {
+    OSCMessage buttonMessage("/toggle");
+    // Remember that LOW means pressed for this joystick
+    float buttonValue = button == HIGH ? 0.0 : 1.0;
+
+    // Add group and player at the beginning so we can tell where messages are coming from
+    buttonMessage.add(groupName);
+    buttonMessage.add(myPlayer);
+    buttonMessage.add(buttonValue);
+
+    network.beginPacket(outIp, outPort);
+    buttonMessage.send(network);
+    network.endPacket();
+
+    Serial.print("OUT ");
+    buttonMessage.send(Serial);
+    Serial.println();
+
+    lastButtonState = button;
+  }
 }
 
 
@@ -128,106 +218,133 @@ void readMessage() {
     }
 
     // Print out messages for debugging
+    Serial.print("IN  ");
     oscMessage.send(Serial);
     Serial.println();
 
+    // Handle the expected messages
     oscMessage.dispatch("/xy", onXy);
     oscMessage.dispatch("/toggle", onToggle);
-    // You can handle more addresses here if you like!
   }
 }
 
-void sendMessage() {
-  float xAxis = ((float) analogRead(X_PIN)) / ANALOG_MAX_VALUE;
-  float yAxis = ((float) analogRead(Y_PIN)) / ANALOG_MAX_VALUE;
-  int button = digitalRead(BUTTON_PIN);
-  bool centered = xAxis > 0.4 && xAxis < 0.6 && yAxis > 0.4 && yAxis < 0.6;
 
-  // Don't send the position continuously when the joystick stays centered
-  if (!centered || !lastCentered) {
-    OSCMessage xyMessage("/xy");
 
-    // Add both the x and y values to the same message, this makes sure they change together.
-    xyMessage.add(xAxis);
-    xyMessage.add(yAxis);
-    // Add myHue at the end so we can tell players apart
-    xyMessage.add(myHue);
-
-    network.beginPacket(outIp, outPort);
-    xyMessage.send(network);
-    network.endPacket();
-    lastCentered = centered;
-  }
-
-  if (lastButtonState != button) {
-    OSCMessage buttonMessage("/toggle");
-    // Remember that LOW means pressed for this joystick
-    float buttonValue = button == HIGH ? 0.0 : 1.0;
-
-    buttonMessage.add(buttonValue);
-    // Add myHue at the end so we can tell players apart
-    buttonMessage.add(myHue);
-    network.beginPacket(outIp, outPort);
-    buttonMessage.send(network);
-    network.endPacket();
-    lastButtonState = button;
-  }
-}
+// ==== These functions map the controls to game behavior ====
 
 void onXy(OSCMessage& msg) {
-  float x = msg.getFloat(0);
-  float y = msg.getFloat(1);
-  int playerId = msg.getInt(2);
-  CRGB playerColor = CHSV(playerId, 255, 255);
+  // This message has the following values:
+  // 0: group name (string, should always be the same as groupName, so you shouldn't need it)
+  // 1: player number (int, 0 to MAX_PLAYERS - 1)
+  // 2: x position (float, 0 to 1)
+  // 3: y position (float, 0 to 1)
+  // Double-check the player number is less than MAX_PLAYERS to prevent crashes
+  int player = msg.getInt(1) % MAX_PLAYERS;
+  float xAxis = msg.getFloat(2);
+  float yAxis = msg.getFloat(3);
+  CRGB playerColor = getPlayerColor(player);
+  int curPosition = playerPosition[player];
 
-  // Uses the joystick to "spread" the player's color.
-  // X sets the direction, Y sets the starting position, and the ID tells us the color.
+  // Uses the joystick to move player's dot around.
+  // X moves the dot, Y does nothing, and the player number tells us what color to use.
 
-  // If the X axis is in the center, exit the function here and don't change anything.
-  // We need a direction.
-  if (x > 0.4 && x < 0.6) {
-    return;
+  if (xAxis <= 0.45) {
+    // Move left, stopping at the beginning
+    playerPosition[player] = max(0, curPosition - 1);
   }
-
-  // Start at a location determined by the Y axis
-  int whichLed = round(y * (NUM_LEDS - 1));
-
-  // If this pixel is already the right color, find the edge of the "block" in the specified
-  // direction, stopping if we hit the end of the strip.
-  if (x > 0.5) {
-    // Find the right edge
-    while (whichLed < NUM_LEDS && leds[whichLed] == playerColor) {
-      whichLed++;
-    }
-
-    // Spread out!
-    if (whichLed < NUM_LEDS) {
-      leds[whichLed] = playerColor;
-    }
+  else if (xAxis >= 0.55) {
+    // Move right, stopping at the end
+    playerPosition[player] = min(curPosition + 1, NUM_LEDS * getPositionsPerLed() - 1);
   }
-  else {
-    // Find the left edge
-    while (whichLed >= 0 && leds[whichLed] == playerColor) {
-      whichLed--;
-    }
-
-    // Spread out!
-    if (whichLed >= 0) {
-      leds[whichLed] = playerColor;
-    }
-  }
+  // No else case -- this would mean the X axis is in the center, and we don't have anything to do
+  // if we don't have a direction to go.
 }
 
 void onToggle(OSCMessage& msg) {
-  // Turn everything that matches the player's color to black when the button is pressed
-  if (msg.getFloat(0) == 1.0) {
-    int playerId = msg.getInt(1);
-    CRGB playerColor = CHSV(playerId, 255, 255);
+  // This message has the following values:
+  // 0: group name (string, should always be the same as groupName, so you shouldn't need it)
+  // 1: player number (int, 0 to MAX_PLAYERS - 1)
+  // 2: button state (float, 0 for released, 1 for pressed)
+  int player = msg.getInt(1) % MAX_PLAYERS;
+  bool isPressed = msg.getFloat(2) == 1.0;
 
-    for (int i = 0; i < NUM_LEDS; i++) {
-      if (leds[i] == playerColor) {
-        leds[i] = CRGB::Black;
+  // If someone presses the button while close to other players, paint the area with their combined
+  // colors.
+  if (isPressed) {
+    bool collision = false;
+    CRGB paintColor = getPlayerColor(player);
+
+    for (int otherPlayer = 0; otherPlayer < MAX_PLAYERS; otherPlayer++) {
+      if (otherPlayer != player && isCollision(player, otherPlayer)) {
+        collision = true;
+        paintColor = blendColors(paintColor, getPlayerColor(otherPlayer));
       }
     }
+
+    if (collision) {
+      showCollision(playerPosition[player], paintColor);
+    }
+  }
+}
+
+
+
+// ==== These functions determine the game look and feel ====
+
+// This function converts a player number to a color. Feel free to change it however you want!
+// The implementation below evenly spaces the player colors across the hue spectrum based on
+// MAX_PLAYERS. The hue chart can be found here:
+// https://raw.githubusercontent.com/FastLED/FastLED/gh-pages/images/HSV-rainbow-with-desc.jpg
+CRGB getPlayerColor(int player) {
+  return CHSV(player * (256 / MAX_PLAYERS), 255, 255);
+}
+
+// This function determines the number of player "positions" per LED. As written, the player moves
+// by at most one "position" on each update, and there at most 60 updates per second. So changing
+// the positions per LED will change the players' movement speed. The larger this number, the slower
+// everyone will move.
+int getPositionsPerLed() {
+  return 15;
+}
+
+// This function determines how "collisions" work, that is, how we decide whether two players are
+// close enough to each other for a button push to do something. This implementation will return
+// true if they are on the same LED.
+bool isCollision(int p1, int p2) {
+  return playerPosition[p1] / getPositionsPerLed() == playerPosition[p2] / getPositionsPerLed();
+}
+
+// Determines how to combine multiple player colors. Note that it may be applied multiple times
+// if more than two players collide!
+CRGB blendColors(CRGB curColor, CRGB newColor) {
+  // blend() comes from FastLED. The third number is how much to blend, from 0-255.
+  // See https://fastled.io/docs/3.1/group___colorutils.html for more color utility functions.
+  return blend(curColor, newColor, 127);
+}
+
+// Display the player positions on the LED strip. This implementation draws a dot at the player
+// position.
+void showPlayerPositions() {
+  for (int curPlayer = 0; curPlayer < MAX_PLAYERS; curPlayer++) {
+    int curPosition = playerPosition[curPlayer];
+    CRGB playerColor = getPlayerColor(curPlayer);
+    int ledAtPosition = curPosition / getPositionsPerLed();
+
+    if (leds[ledAtPosition] == CRGB(0, 0, 0)) { // Black
+      leds[ledAtPosition] = playerColor;
+    }
+    else {
+      leds[ledAtPosition] = blendColors(leds[ledAtPosition], playerColor);
+    }
+  }
+}
+
+// Update the LED strip to display a collision. This implementation paints the neighboring few LEDs.
+// Splat!
+void showCollision(int position, CRGB paintColor) {
+  int ledAtPosition = position / getPositionsPerLed();
+
+  for (int i = max(0, ledAtPosition - 6); i <= ledAtPosition + 6 && i < NUM_LEDS; i++) {
+    leds[i] = paintColor;
   }
 }
