@@ -19,48 +19,31 @@ server.on('ready', () => {
   console.log();
 
   server.on('message', (msg, _, request) => {
-    const senderAddress = `${request.address}:${request.port}`;
+    const senderGroup = msg.args[0].value;
+    const senderPlayer = msg.args[1].value;
+    const clientKey = `${senderGroup}/${senderPlayer}`;
 
-    // Keep a UDPPort object for sending messages back to each the clients we've heard from
-    if (clients[senderAddress] == null) {
-      const newClient = new osc.UDPPort({
-        localAddress: LOCAL_ADDRESS,
-        localPort: 0, // Let the OS pick a random, unused port
-        remoteAddress: request.address,
-        remotePort: request.port,
-        metadata: true,
-      });
+    // Keep track of clients (by group name and player number) so we can send messages back to them
+    clients[clientKey] = {
+      group: senderGroup,
+      address: request.address,
+      port: request.port,
+    };
 
-      clients[senderAddress] = newClient;
+    console.log('<-', `${request.address}:${request.port}`, msg.address, msg.args.map(a => a.value));
 
-      // Wait for the port to be open before using it
-      newClient.on('open', () => {
-        newClient.isOpen = true;
-      });
-
-      // If there's ever an error on the port or it gets closed, remove it from the list.
-      newClient.on('error', (error) => {
-        console.log('xx', senderAddress, 'ERROR', error);
-        delete clients[senderAddress];
-      });
-
-      newClient.on('close', () => {
-        console.log('xx', senderAddress, 'CLOSED');
-        delete clients[senderAddress];
-      });
-
-      newClient.open();
-    }
-
-    console.log('<-', senderAddress, msg.address, msg.args.map(a => a.value));
-
-    // Broadcast the message to all known clients
-    Object.entries(clients).forEach(([clientAddress, client]) => {
-      if (client.isOpen) {
-        console.log('   ->', clientAddress, msg.address, msg.args.map(a => a.value));
-        client.send(msg);
+    // Broadcast the message to all known clients in the same group
+    Object.entries(clients).forEach(([clientKey, client]) => {
+      if (client.group == senderGroup) {
+        console.log('   ->', `${client.address}:${client.port}`, msg.address, msg.args.map(a => a.value));
+        server.send(msg, client.address, client.port);
       }
     });
+  });
+
+  server.on('error', (err) => {
+    // TODO: can we remove clients if we get an error?
+    console.error(err);
   });
 });
 
