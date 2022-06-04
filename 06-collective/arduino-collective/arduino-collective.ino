@@ -110,11 +110,6 @@ void setup() {
   Serial.println("!");
   Serial.println();
 
-  // Start all players spaced out evenly along the strip
-  for (int i = 0; i < MAX_PLAYERS; i++) {
-    playerPosition[i] = NUM_LEDS * getPositionsPerLed() * i / MAX_PLAYERS;
-  }
-
   // Set up LEDs
   FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(40);
@@ -122,6 +117,8 @@ void setup() {
   // Blank the LED strip
   fill_solid(leds, NUM_LEDS, CRGB::Black);
   FastLED.show();
+
+  setInitialPlayerPositions();
 }
 
 void loop() {
@@ -288,6 +285,18 @@ void onToggle(OSCMessage& msg) {
 
 
 // ==== These functions determine the game look and feel ====
+
+// This function is called from setup() to determine the initial position of each player.
+// The default implementation spaces them out evenly along the strip. What happens if you make them
+// random instead?
+void setInitialPlayerPositions() {
+  for (int i = 0; i < MAX_PLAYERS; i++) {
+    // Even spacing
+    playerPosition[i] = NUM_LEDS * getPositionsPerLed() * i / MAX_PLAYERS;
+    // Random spacing
+    // playerPosition[i] = random(NUM_LEDS * getPositionsPerLed());
+  }
+}
 
 // This function converts a player number to a color. Feel free to change it however you want!
 // The implementation below evenly spaces the player colors across the hue spectrum based on
