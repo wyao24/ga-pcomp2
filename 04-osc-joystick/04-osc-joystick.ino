@@ -19,10 +19,10 @@
 #define ANALOG_MAX_VALUE 1023.0
 #endif
 
-char ssid[] = "*****************"; // your network SSID (name)
-char pass[] = "*******"; // your network password
+char ssid[] = "WilliPhone"; // your network SSID (name)
+char pass[] = "williamphone"; // your network password
 
-const IPAddress outIp(10,10,10,10); // IP of the device you want to send to
+const IPAddress outIp(192,168,0,28); // IP of the device you want to send to
 const unsigned int outPort = 9000; // Port where that device will receive OSC messages
 
 // A UDP instance to let us send and receive packets over UDP
