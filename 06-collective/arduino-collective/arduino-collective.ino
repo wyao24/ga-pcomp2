@@ -29,8 +29,8 @@
 
 // ==== SET THESE CONFIGURATION VALUES BEFORE UPLOADING! ====
 
-const char ssid[] = "*****************"; // your network SSID (name)
-const char pass[] = "*******"; // your network password
+const char ssid[] = "NETGEAR43_EXT"; // your network SSID (name)
+const char pass[] = "fuzzyoboe990"; // your network password
 
 const IPAddress outIp(10,10,10,10); // remote IP of your collective server
 const unsigned int outPort = 9000; // remote port of your collective server
