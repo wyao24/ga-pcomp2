@@ -22,8 +22,8 @@
 #define ANALOG_MAX_VALUE 1023.0
 #endif
 
-// Feel free to change this, it will change the number of colored dots on the strip
-#define MAX_PLAYERS 8
+// Feel free to change this, it will change the number of colored dots on the strip as well
+#define MAX_PLAYERS 6
 
 
 
@@ -36,7 +36,7 @@ const IPAddress outIp(10,10,10,10); // remote IP of your collective server
 const unsigned int outPort = 9000; // remote port of your collective server
 
 const char groupName[] = "change-me"; // pick a unique name for your group
-const int myPlayer = 0; // pick a unique number for yourself (0 to groupSize - 1)
+const int myPlayer = 0; // pick a unique number for yourself (0 to MAX_PLAYERS - 1)
 
 // ==== END OF CONFIGURATION ====
 
@@ -125,14 +125,12 @@ void setup() {
 }
 
 void loop() {
-  // Start by dimming what's currently on the LED (the previous "frame")
-  fadeToBlackBy(leds, NUM_LEDS, 32);
-
+  prepareForNextFrame();
   showPlayerPositions();
   sendMessage();
   readMessage();
 
-  // Call show at the end of the loop to display any changes
+  // Call show at the end of the loop to display this frame
   FastLED.show();
   // Short delay to prevent sending too many OSC messages
   delay(16);
@@ -320,6 +318,12 @@ CRGB blendColors(CRGB curColor, CRGB newColor) {
   // blend() comes from FastLED. The third number is how much to blend, from 0-255.
   // See https://fastled.io/docs/3.1/group___colorutils.html for more color utility functions.
   return blend(curColor, newColor, 127);
+}
+
+// This function is called right at the beginning of loop(), before drawing the next "frame".
+// This implementation just fades out the previous frame slightly, giving everything a nice trail.
+void prepareForNextFrame() {
+  fadeToBlackBy(leds, NUM_LEDS, 32);
 }
 
 // Display the player positions on the LED strip. This implementation draws a dot at the player
